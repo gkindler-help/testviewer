@@ -691,11 +691,9 @@ document.getElementById('btn-close-drawer').addEventListener('click', () => {
 // ─────────────────────────────────────────────
 // Render loop
 // ─────────────────────────────────────────────
-function animate() {
-  requestAnimationFrame(animate);
-  spark.render(scene, camera);
-}
-animate();
+renderer.setAnimationLoop(function animate() {
+  renderer.render(scene, camera);
+});
 </script>
 </body>
 </html>
