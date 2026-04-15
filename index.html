@@ -459,7 +459,7 @@
 
 <script type="module">
 import * as THREE from 'three';
-import { SplatMesh, SparkRenderer } from '@sparkjsdev/spark';
+import { SplatMesh } from '@sparkjsdev/spark';
 
 // ─────────────────────────────────────────────
 // CONFIG — swap splatURL to your GitHub Pages path
@@ -497,8 +497,6 @@ camera.position.set(0, 0, 3);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
-
-const sparkRenderer = new SparkRenderer({ renderer, scene, camera });
 
 // ─────────────────────────────────────────────
 // Orbit controls (manual — avoids ES module import issues)
@@ -621,7 +619,6 @@ async function loadSplatFromURL(url, name) {
   loadOverlay.style.opacity = '1';
   loadOverlay.style.pointerEvents = 'auto';
   loadOverlay.classList.remove('fade-out');
-  dropZone.classList.add('hidden');
 
   setProgress(10, 'Fetching splat data…');
 
@@ -637,19 +634,14 @@ async function loadSplatFromURL(url, name) {
     scene.add(splatMesh);
 
     // Poll until loaded
-    await new Promise((resolve, reject) => {
+    await new Promise((resolve) => {
       let checks = 0;
       const poll = setInterval(() => {
         checks++;
         const pct = Math.min(90, 30 + checks * 2);
         setProgress(pct, checks < 10 ? 'Sorting splats…' : 'Almost ready…');
-        if (splatMesh.ready) {
+        if (splatMesh.ready || checks > 120) {
           clearInterval(poll);
-          resolve();
-        }
-        if (checks > 120) {
-          clearInterval(poll);
-          // Still show — might be loading progressively
           resolve();
         }
       }, 150);
@@ -664,9 +656,8 @@ async function loadSplatFromURL(url, name) {
 
   } catch (err) {
     console.error('Splat load error:', err);
-    loadHint.textContent = 'Load failed — try dropping file directly';
+    loadHint.textContent = 'Load failed — check console for details';
     setProgress(0);
-    dropZone.classList.remove('hidden');
   }
 }
 
@@ -712,7 +703,7 @@ document.getElementById('btn-close-drawer').addEventListener('click', () => {
 // ─────────────────────────────────────────────
 function animate() {
   requestAnimationFrame(animate);
-  sparkRenderer.render();
+  renderer.render(scene, camera);
 }
 animate();
 </script>
