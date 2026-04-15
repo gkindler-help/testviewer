@@ -550,12 +550,8 @@ const canvas        = document.getElementById('splat-canvas');
 const loadOverlay   = document.getElementById('loading-overlay');
 const loadHint      = document.getElementById('loading-hint-text');
 const progressFill  = document.getElementById('progress-fill');
-const dropZone      = document.getElementById('drop-zone');
-const dropTarget    = document.getElementById('drop-target');
-const fileInput     = document.getElementById('file-input');
 const infoDrawer    = document.getElementById('info-drawer');
 const toast         = document.getElementById('toast');
-const corsNotice    = document.getElementById('cors-notice');
 const sceneTitle    = document.getElementById('scene-title');
 
 // ─────────────────────────────────────────────
@@ -792,6 +788,7 @@ document.getElementById('btn-copy-coords').addEventListener('click', () => {
 });
 
 
+document.getElementById('btn-info').addEventListener('click', () => {
   infoDrawer.classList.toggle('open');
 });
 
