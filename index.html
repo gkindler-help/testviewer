@@ -633,26 +633,13 @@ async function loadSplatFromURL(url, name) {
     splatMesh = new SplatMesh({ url });
     scene.add(splatMesh);
 
-    // Poll until loaded
-    await new Promise((resolve) => {
-      let checks = 0;
-      const poll = setInterval(() => {
-        checks++;
-        const pct = Math.min(90, 30 + checks * 2);
-        setProgress(pct, checks < 10 ? 'Sorting splats…' : 'Almost ready…');
-        if (splatMesh.ready || checks > 120) {
-          clearInterval(poll);
-          resolve();
-        }
-      }, 150);
-    });
-
-    setProgress(100, 'Loaded');
     if (name) sceneTitle.textContent = name;
+    setProgress(100, 'Loading splat…');
 
+    // Fade overlay — splat streams in progressively
     setTimeout(() => {
       loadOverlay.classList.add('fade-out');
-    }, 400);
+    }, 800);
 
   } catch (err) {
     console.error('Splat load error:', err);
