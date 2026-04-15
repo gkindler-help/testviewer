@@ -315,7 +315,54 @@
     transform: translateX(-50%) translateY(0);
   }
 
-  /* ── CORS notice ── */
+  /* ── Coord capture panel ── */
+  #coord-panel {
+    position: fixed;
+    top: 64px;
+    right: 16px;
+    z-index: 60;
+    background: var(--panel-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--gold-border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-width: 220px;
+    display: none;
+  }
+  #coord-panel.visible { display: block; }
+  .coord-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+  .coord-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+    font-size: 0.72rem;
+    font-family: monospace;
+    color: var(--white);
+    margin-bottom: 10px;
+  }
+  .coord-key { color: var(--muted); }
+  .coord-copy {
+    width: 100%;
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    padding: 7px 0;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .coord-copy:hover { opacity: 0.85; }
+
   #cors-notice {
     position: fixed;
     inset: 0;
@@ -394,7 +441,7 @@
          alt="STL Home Buyer Journey"
          onerror="this.style.display='none'">
     <span class="scene-title" id="scene-title">Kitchen & Dining</span>
-    <span class="scene-badge">Gaussian Splat</span>
+    <span class="scene-badge">3D Tour</span>
   </div>
 </div>
 
@@ -408,6 +455,14 @@
     Reset
   </button>
 
+  <div class="hud-divider"></div>
+  <button class="hud-btn" id="btn-coords">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+    </svg>
+    Coords
+  </button>
   <div class="hud-divider"></div>
   <button class="hud-btn" id="btn-info">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -442,7 +497,27 @@
   <a href="https://gkindler-help.github.io/temphomebuyjourney/03c-renovated.html" class="drawer-cta">Walk The Full Renovated Tour →</a>
 </div>
 
-<!-- ── Toast ── -->
+<!-- ── Coord capture panel ── -->
+<div id="coord-panel">
+  <div class="coord-label">Camera Position</div>
+  <div class="coord-grid">
+    <span class="coord-key">theta</span><span id="c-theta">0.000</span>
+    <span class="coord-key">phi</span><span id="c-phi">1.571</span>
+    <span class="coord-key">r</span><span id="c-r">3.000</span>
+    <span class="coord-key">pan.x</span><span id="c-px">0.000</span>
+    <span class="coord-key">pan.y</span><span id="c-py">0.000</span>
+    <span class="coord-key">pan.z</span><span id="c-pz">0.000</span>
+  </div>
+  <div class="coord-label" style="margin-top:8px">World Position</div>
+  <div class="coord-grid">
+    <span class="coord-key">x</span><span id="c-wx">0.000</span>
+    <span class="coord-key">y</span><span id="c-wy">0.000</span>
+    <span class="coord-key">z</span><span id="c-wz">0.000</span>
+  </div>
+  <button class="coord-copy" id="btn-copy-coords">Copy to Clipboard</button>
+</div>
+
+
 <div id="toast"></div>
 
 
@@ -690,7 +765,33 @@ document.getElementById('btn-reset').addEventListener('click', () => {
 
 
 
-document.getElementById('btn-info').addEventListener('click', () => {
+// ─────────────────────────────────────────────
+// Coord capture panel
+// ─────────────────────────────────────────────
+const coordPanel = document.getElementById('coord-panel');
+
+document.getElementById('btn-coords').addEventListener('click', () => {
+  coordPanel.classList.toggle('visible');
+});
+
+function updateCoordDisplay() {
+  document.getElementById('c-theta').textContent = spherical.theta.toFixed(3);
+  document.getElementById('c-phi').textContent   = spherical.phi.toFixed(3);
+  document.getElementById('c-r').textContent     = spherical.r.toFixed(3);
+  document.getElementById('c-px').textContent    = panOffset.x.toFixed(3);
+  document.getElementById('c-py').textContent    = panOffset.y.toFixed(3);
+  document.getElementById('c-pz').textContent    = panOffset.z.toFixed(3);
+  document.getElementById('c-wx').textContent    = camera.position.x.toFixed(3);
+  document.getElementById('c-wy').textContent    = camera.position.y.toFixed(3);
+  document.getElementById('c-wz').textContent    = camera.position.z.toFixed(3);
+}
+
+document.getElementById('btn-copy-coords').addEventListener('click', () => {
+  const text = `{ theta: ${spherical.theta.toFixed(3)}, phi: ${spherical.phi.toFixed(3)}, r: ${spherical.r.toFixed(3)}, pan: { x: ${panOffset.x.toFixed(3)}, y: ${panOffset.y.toFixed(3)}, z: ${panOffset.z.toFixed(3)} }, world: { x: ${camera.position.x.toFixed(3)}, y: ${camera.position.y.toFixed(3)}, z: ${camera.position.z.toFixed(3)} } }`;
+  navigator.clipboard.writeText(text).then(() => showToast('Coords copied'));
+});
+
+
   infoDrawer.classList.toggle('open');
 });
 
@@ -704,6 +805,7 @@ document.getElementById('btn-close-drawer').addEventListener('click', () => {
 // Render loop
 // ─────────────────────────────────────────────
 renderer.setAnimationLoop(function animate() {
+  updateCoordDisplay();
   renderer.render(scene, camera);
 });
 </script>
