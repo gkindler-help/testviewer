@@ -459,7 +459,7 @@
 
 <script type="module">
 import * as THREE from 'three';
-import { SplatMesh } from '@sparkjsdev/spark';
+import { SplatMesh, SparkRenderer } from '@sparkjsdev/spark';
 
 // ─────────────────────────────────────────────
 // CONFIG — swap splatURL to your GitHub Pages path
@@ -494,9 +494,12 @@ const camera = new THREE.PerspectiveCamera(
 );
 camera.position.set(0, 0, 3);
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
+
+const spark = new SparkRenderer({ renderer });
+scene.add(spark);
 
 // ─────────────────────────────────────────────
 // Orbit controls (manual — avoids ES module import issues)
@@ -690,7 +693,7 @@ document.getElementById('btn-close-drawer').addEventListener('click', () => {
 // ─────────────────────────────────────────────
 function animate() {
   requestAnimationFrame(animate);
-  renderer.render(scene, camera);
+  spark.render(scene, camera);
 }
 animate();
 </script>
