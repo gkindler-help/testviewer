@@ -650,8 +650,9 @@ async function loadSplatFromURL(url, name) {
     if (name) sceneTitle.textContent = name;
     setProgress(100, 'Loading splat…');
 
-    // Fade overlay — splat streams in progressively
     setTimeout(() => {
+      loadOverlay.style.opacity = '';
+      loadOverlay.style.pointerEvents = '';
       loadOverlay.classList.add('fade-out');
     }, 800);
 
