@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>360° Interior Tour — STL Home Buyer Journey</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #050505;
+    --gold: #ffcc4d;
+    --gold-dim: rgba(255,204,77,0.15);
+    --gold-border: rgba(255,204,77,0.35);
+    --white: #f0ece4;
+    --muted: rgba(240,236,228,0.45);
+    --panel-bg: rgba(5,5,5,0.85);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--white);
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+  }
+
+  /* ── Canvas ── */
+  #splat-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+  }
+  #splat-canvas:active { cursor: grabbing; }
+
+  /* ── Loading overlay ── */
+  #loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    gap: 24px;
+    transition: opacity 0.6s ease;
+  }
+  #loading-overlay.fade-out {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .logo-lockup {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-lockup img {
+    height: 48px;
+    object-fit: contain;
+  }
+  .loading-label {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    color: var(--gold);
+    letter-spacing: 0.06em;
+  }
+
+  .progress-bar-wrap {
+    width: 220px;
+    height: 2px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--gold);
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+
+  .loading-hint {
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* ── Drop zone (shown when no file loaded yet) ── */
+  #drop-zone {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 90;
+    gap: 20px;
+  }
+  #drop-zone.hidden { display: none; }
+
+  .drop-ring {
+    width: 180px;
+    height: 180px;
+    border: 1.5px solid var(--gold-border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .drop-ring:hover, .drop-ring.drag-over {
+    border-color: var(--gold);
+    background: var(--gold-dim);
+  }
+  .drop-ring svg { opacity: 0.7; }
+  .drop-ring .drop-text {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: center;
+    padding: 0 16px;
+  }
+  #file-input { display: none; }
+
+  .drop-subtitle {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* ── Top bar ── */
+  #top-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    background: linear-gradient(to bottom, rgba(5,5,5,0.9) 0%, transparent 100%);
+    z-index: 50;
+    justify-content: space-between;
+  }
+
+  .top-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .top-bar-left img {
+    height: 28px;
+    object-fit: contain;
+  }
+  .scene-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--white);
+    opacity: 0.9;
+  }
+  .scene-badge {
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: var(--gold-dim);
+    border: 1px solid var(--gold-border);
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  /* ── Controls HUD ── */
+  #controls-hud {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--panel-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--gold-border);
+    border-radius: 40px;
+    padding: 10px 20px;
+    transition: opacity 0.4s;
+  }
+
+  .hud-btn {
+    background: none;
+    border: none;
+    color: var(--white);
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .hud-btn:hover {
+    background: var(--gold-dim);
+    color: var(--gold);
+  }
+  .hud-btn svg { flex-shrink: 0; }
+
+  .hud-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--gold-border);
+  }
+
+  /* ── Info drawer ── */
+  #info-drawer {
+    position: fixed;
+    right: 0; top: 0; bottom: 0;
+    width: 300px;
+    background: var(--panel-bg);
+    backdrop-filter: blur(16px);
+    border-left: 1px solid var(--gold-border);
+    z-index: 60;
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+    padding: 72px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  #info-drawer.open {
+    transform: translateX(0);
+  }
+
+  .drawer-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px;
+  }
+  .drawer-close:hover { color: var(--white); }
+
+  .drawer-heading {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--gold);
+    line-height: 1.3;
+  }
+
+  .drawer-body {
+    font-size: 0.83rem;
+    line-height: 1.7;
+    color: var(--muted);
+  }
+
+  .drawer-cta {
+    margin-top: auto;
+    display: block;
+    background: var(--gold);
+    color: var(--bg);
+    text-align: center;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+  .drawer-cta:hover { opacity: 0.85; }
+
+  /* ── Status toast ── */
+  #toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--panel-bg);
+    border: 1px solid var(--gold-border);
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    z-index: 80;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ── CORS notice ── */
+  #cors-notice {
+    position: fixed;
+    inset: 0;
+    background: rgba(5,5,5,0.95);
+    z-index: 200;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 40px;
+    text-align: center;
+  }
+  #cors-notice.show { display: flex; }
+  #cors-notice h2 {
+    font-family: 'Playfair Display', serif;
+    color: var(--gold);
+    font-size: 1.4rem;
+  }
+  #cors-notice p {
+    color: var(--muted);
+    font-size: 0.85rem;
+    line-height: 1.7;
+    max-width: 420px;
+  }
+  #cors-notice code {
+    font-family: monospace;
+    font-size: 0.8rem;
+    background: rgba(255,204,77,0.08);
+    border: 1px solid var(--gold-border);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--gold);
+  }
+  .notice-btn {
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+</style>
+</head>
+
+<body>
+
+<!-- ── Loading overlay ── -->
+<div id="loading-overlay">
+  <div class="logo-lockup">
+    <img src="https://gkindler-help.github.io/temphomebuyjourney/assets/STLhomebuyerjourneylogo.png"
+         alt="STL Home Buyer Journey"
+         onerror="this.style.display='none'">
+    <span class="loading-label">Interior Tour</span>
+  </div>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progress-fill"></div>
+  </div>
+  <span class="loading-hint" id="loading-hint-text">Initializing viewer…</span>
+</div>
+
+
+
+<!-- ── Canvas ── -->
+<canvas id="splat-canvas"></canvas>
+
+<!-- ── Top bar ── -->
+<div id="top-bar">
+  <div class="top-bar-left">
+    <img src="https://gkindler-help.github.io/temphomebuyjourney/assets/STLhomebuyerjourneylogo.png"
+         alt="STL Home Buyer Journey"
+         onerror="this.style.display='none'">
+    <span class="scene-title" id="scene-title">Kitchen & Dining</span>
+    <span class="scene-badge">Gaussian Splat</span>
+  </div>
+</div>
+
+<!-- ── Controls HUD ── -->
+<div id="controls-hud">
+  <button class="hud-btn" id="btn-reset">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+      <path d="M3 3v5h5"/>
+    </svg>
+    Reset
+  </button>
+
+  <div class="hud-divider"></div>
+  <button class="hud-btn" id="btn-info">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    What To Look For
+  </button>
+</div>
+
+<!-- ── Info drawer ── -->
+<div id="info-drawer">
+  <button class="drawer-close" id="btn-close-drawer">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  </button>
+  <span class="drawer-heading">Kitchen & Dining — What I'm Looking For</span>
+  <div class="drawer-body">
+    <p>In a renovated kitchen, the finish work tells the real story. I look at:</p>
+    <br>
+    <p><strong style="color:var(--white)">Cabinets</strong> — Are the gaps even? Do doors close flush? Cheap installs skip the shimming.</p>
+    <br>
+    <p><strong style="color:var(--white)">Counters</strong> — Run your hand along the seam. A visible ridge means a DIY install, not a professional one.</p>
+    <br>
+    <p><strong style="color:var(--white)">Backsplash</strong> — Grout lines should be consistent. Lippage (one tile higher than its neighbor) is a red flag.</p>
+    <br>
+    <p><strong style="color:var(--white)">Lighting</strong> — Under-cabinet lighting is cheap. If it's missing in a "fully renovated" kitchen, they cut corners somewhere else too.</p>
+  </div>
+  <a href="https://gkindler-help.github.io/temphomebuyjourney/03c-renovated.html" class="drawer-cta">Walk The Full Renovated Tour →</a>
+</div>
+
+<!-- ── Toast ── -->
+<div id="toast"></div>
+
+
+
+<!-- ── Spark.js (SPZ native support) ── -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.180.0/three.module.js",
+    "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/2.0.0/spark.module.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { SplatMesh, SparkRenderer } from '@sparkjsdev/spark';
+
+// ─────────────────────────────────────────────
+// CONFIG — swap splatURL to your GitHub Pages path
+// e.g. "assets/splats/cozy-kitchen-dining-area.spz"
+// or a full URL. Leave empty to use drop-zone.
+// ─────────────────────────────────────────────
+const SPLAT_URL = 'https://gkindler-help.github.io/testviewer/assets/cozy-kitchen-dining-area.spz';
+
+// ─────────────────────────────────────────────
+// DOM refs
+// ─────────────────────────────────────────────
+const canvas        = document.getElementById('splat-canvas');
+const loadOverlay   = document.getElementById('loading-overlay');
+const loadHint      = document.getElementById('loading-hint-text');
+const progressFill  = document.getElementById('progress-fill');
+const dropZone      = document.getElementById('drop-zone');
+const dropTarget    = document.getElementById('drop-target');
+const fileInput     = document.getElementById('file-input');
+const infoDrawer    = document.getElementById('info-drawer');
+const toast         = document.getElementById('toast');
+const corsNotice    = document.getElementById('cors-notice');
+const sceneTitle    = document.getElementById('scene-title');
+
+// ─────────────────────────────────────────────
+// Three.js scene setup
+// ─────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050505);
+
+const camera = new THREE.PerspectiveCamera(
+  65, canvas.clientWidth / canvas.clientHeight, 0.01, 1000
+);
+camera.position.set(0, 0, 3);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+const sparkRenderer = new SparkRenderer({ renderer, scene, camera });
+
+// ─────────────────────────────────────────────
+// Orbit controls (manual — avoids ES module import issues)
+// ─────────────────────────────────────────────
+let isDragging = false, isRightDrag = false;
+let prevX = 0, prevY = 0;
+let spherical = { theta: 0, phi: Math.PI / 2, r: 3 };
+let panOffset = new THREE.Vector3();
+
+function updateCamera() {
+  const x = spherical.r * Math.sin(spherical.phi) * Math.sin(spherical.theta);
+  const y = spherical.r * Math.cos(spherical.phi);
+  const z = spherical.r * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+  camera.position.set(x + panOffset.x, y + panOffset.y, z + panOffset.z);
+  camera.lookAt(panOffset);
+}
+updateCamera();
+
+canvas.addEventListener('mousedown', e => {
+  isDragging = true;
+  isRightDrag = e.button === 2;
+  prevX = e.clientX; prevY = e.clientY;
+});
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - prevX;
+  const dy = e.clientY - prevY;
+  prevX = e.clientX; prevY = e.clientY;
+  if (isRightDrag) {
+    const right = new THREE.Vector3();
+    const up = new THREE.Vector3();
+    camera.matrix.extractBasis(right, up, new THREE.Vector3());
+    panOffset.addScaledVector(right, -dx * 0.003);
+    panOffset.addScaledVector(up,    dy * 0.003);
+  } else {
+    spherical.theta -= dx * 0.005;
+    spherical.phi   -= dy * 0.005;
+    spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+  }
+  updateCamera();
+});
+
+window.addEventListener('mouseup', () => { isDragging = false; });
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  spherical.r = Math.max(0.5, Math.min(20, spherical.r + e.deltaY * 0.005));
+  updateCamera();
+}, { passive: false });
+
+// Touch
+let lastTouchDist = null;
+let touchPrevX = 0, touchPrevY = 0;
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    touchPrevX = e.touches[0].clientX;
+    touchPrevY = e.touches[0].clientY;
+  }
+  if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    lastTouchDist = Math.sqrt(dx*dx + dy*dy);
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    const dx = e.touches[0].clientX - touchPrevX;
+    const dy = e.touches[0].clientY - touchPrevY;
+    touchPrevX = e.touches[0].clientX;
+    touchPrevY = e.touches[0].clientY;
+    spherical.theta -= dx * 0.005;
+    spherical.phi   -= dy * 0.005;
+    spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+    updateCamera();
+  }
+  if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (lastTouchDist) {
+      spherical.r = Math.max(0.5, Math.min(20, spherical.r - (dist - lastTouchDist) * 0.01));
+      updateCamera();
+    }
+    lastTouchDist = dist;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => { lastTouchDist = null; });
+
+// ─────────────────────────────────────────────
+// Resize
+// ─────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ─────────────────────────────────────────────
+// Splat loading
+// ─────────────────────────────────────────────
+let splatMesh = null;
+
+function setProgress(pct, hint) {
+  progressFill.style.width = pct + '%';
+  if (hint) loadHint.textContent = hint;
+}
+
+function showToast(msg, duration = 2500) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), duration);
+}
+
+async function loadSplatFromURL(url, name) {
+  loadOverlay.style.opacity = '1';
+  loadOverlay.style.pointerEvents = 'auto';
+  loadOverlay.classList.remove('fade-out');
+  dropZone.classList.add('hidden');
+
+  setProgress(10, 'Fetching splat data…');
+
+  try {
+    if (splatMesh) {
+      scene.remove(splatMesh);
+      splatMesh = null;
+    }
+
+    setProgress(30, 'Decoding Gaussians…');
+
+    splatMesh = new SplatMesh({ url });
+    scene.add(splatMesh);
+
+    // Poll until loaded
+    await new Promise((resolve, reject) => {
+      let checks = 0;
+      const poll = setInterval(() => {
+        checks++;
+        const pct = Math.min(90, 30 + checks * 2);
+        setProgress(pct, checks < 10 ? 'Sorting splats…' : 'Almost ready…');
+        if (splatMesh.ready) {
+          clearInterval(poll);
+          resolve();
+        }
+        if (checks > 120) {
+          clearInterval(poll);
+          // Still show — might be loading progressively
+          resolve();
+        }
+      }, 150);
+    });
+
+    setProgress(100, 'Loaded');
+    if (name) sceneTitle.textContent = name;
+
+    setTimeout(() => {
+      loadOverlay.classList.add('fade-out');
+    }, 400);
+
+  } catch (err) {
+    console.error('Splat load error:', err);
+    loadHint.textContent = 'Load failed — try dropping file directly';
+    setProgress(0);
+    dropZone.classList.remove('hidden');
+  }
+}
+
+async function loadSplatFromBlob(file) {
+  const url = URL.createObjectURL(file);
+  const name = file.name.replace(/\.(spz|splat|ply|ksplat)$/i, '').replace(/[-_]/g, ' ');
+  await loadSplatFromURL(url, name);
+}
+
+// ─────────────────────────────────────────────
+// Startup: URL or drop zone
+// ─────────────────────────────────────────────
+if (SPLAT_URL) {
+  loadSplatFromURL(SPLAT_URL, 'Kitchen & Dining');
+}
+
+
+
+// ─────────────────────────────────────────────
+// HUD controls
+// ─────────────────────────────────────────────
+document.getElementById('btn-reset').addEventListener('click', () => {
+  spherical = { theta: 0, phi: Math.PI / 2, r: 3 };
+  panOffset.set(0, 0, 0);
+  updateCamera();
+  showToast('View reset');
+});
+
+
+
+document.getElementById('btn-info').addEventListener('click', () => {
+  infoDrawer.classList.toggle('open');
+});
+
+document.getElementById('btn-close-drawer').addEventListener('click', () => {
+  infoDrawer.classList.remove('open');
+});
+
+
+
+// ─────────────────────────────────────────────
+// Render loop
+// ─────────────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+  sparkRenderer.render();
+}
+animate();
+</script>
+</body>
+</html>
